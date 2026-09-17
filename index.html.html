@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>ESP32 Live Tracking</title>
+
+  <!-- Leaflet Map -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    h1 {
+      padding: 15px;
+    }
+
+    #status {
+      padding: 10px;
+      font-size: 18px;
+    }
+
+    #map {
+      height: 70vh;
+      width: 100%;
+    }
+
+    #googleMaps {
+      display: inline-block;
+      margin: 15px;
+      padding: 12px 20px;
+      background: #4285F4;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+
+    #googleMaps:hover {
+      opacity: 0.85;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>📍 ESP32 Live GPS Tracking</h1>
+
+  <div id="status">
+    Waiting for GPS...
+  </div>
+
+  <div id="map"></div>
+
+  <a
+    id="googleMaps"
+    href="#"
+    target="_blank"
+  >
+    Open in Google Maps
+  </a>
+
+
+  <!-- Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+  <!-- Firebase -->
+  <script type="module">
+
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+    import {
+      getDatabase,
+      ref,
+      onValue
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyBSUV2dALeMNdCHuTmdMFSARIuXkMNQkzc",
+      authDomain: "esp32-ad9a9.firebaseapp.com",
+      databaseURL: "https://esp32-ad9a9-default-rtdb.firebaseio.com",
+      projectId: "esp32-ad9a9",
+      storageBucket: "esp32-ad9a9.firebasestorage.app",
+      messagingSenderId: "435399263466",
+      appId: "1:435399263466:web:fa74af2bb5804bb7090393"
+    };
+
+
+    // Start Firebase
+    const app = initializeApp(firebaseConfig);
+
+    const database = getDatabase(app);
+
+
+    // Firebase GPS location
+    const gpsRef = ref(database, "gps");
+
+
+    // Create map
+    const map = L.map("map").setView([10, 76], 15);
+
+
+    // OpenStreetMap tiles
+    L.tileLayer(
+      "https
