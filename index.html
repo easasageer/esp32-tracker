@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 
@@ -13,104 +12,128 @@
 
   <title>ESP32 GPS Tracker</title>
 
-  <!-- Leaflet CSS -->
+
+  <!-- Leaflet -->
+
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   >
 
+
   <style>
 
-    * {
-      box-sizing: border-box;
-    }
-
     body {
+
       margin: 0;
+
       font-family: Arial, sans-serif;
+
       background: #111;
+
       color: white;
-    }
 
-    header {
-      padding: 15px 20px;
-      background: #181818;
       text-align: center;
+
     }
 
-    header h1 {
+
+    h1 {
+
+      padding: 15px;
+
       margin: 0;
-      font-size: 22px;
+
     }
+
 
     #status {
+
       padding: 10px;
-      text-align: center;
-      background: #222;
-      color: #00ff66;
-      font-weight: bold;
+
+      font-size: 18px;
+
     }
+
 
     #map {
-      width: 100%;
+
       height: 70vh;
+
+      width: 100%;
+
     }
 
-    #details {
+
+    .details {
+
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      background: #181818;
-      padding: 12px;
-      gap: 8px;
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
+      gap: 10px;
+
+      padding: 15px;
+
     }
 
-    .detail {
-      text-align: center;
-      padding: 8px;
+
+    .box {
+
+      background: #222;
+
+      padding: 12px;
+
+      border-radius: 8px;
+
     }
+
 
     .label {
-      display: block;
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 5px;
+
+      font-size: 13px;
+
+      color: #aaa;
+
     }
+
 
     .value {
-      display: block;
-      font-size: 15px;
+
+      font-size: 18px;
+
       font-weight: bold;
+
+      margin-top: 5px;
+
     }
+
 
     #googleMaps {
-      display: block;
-      width: fit-content;
-      margin: 15px auto;
+
+      display: inline-block;
+
+      margin: 15px;
+
       padding: 12px 20px;
+
       background: #4285F4;
+
       color: white;
+
       text-decoration: none;
+
       border-radius: 8px;
+
       font-weight: bold;
+
     }
+
 
     #googleMaps:hover {
+
       opacity: 0.85;
-    }
-
-    @media (max-width: 700px) {
-
-      #map {
-        height: 65vh;
-      }
-
-      #details {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      header h1 {
-        font-size: 19px;
-      }
 
     }
 
@@ -121,99 +144,139 @@
 
 <body>
 
-  <header>
 
-    <h1>📍 ESP32 GPS Tracker</h1>
-
-  </header>
+  <h1>📍 ESP32 GPS Tracker</h1>
 
 
   <div id="status">
-    MAP TEST — GPS NOT CONNECTED
+
+    Connecting to ThingsBoard...
+
   </div>
 
 
   <div id="map"></div>
 
 
-  <div id="details">
+  <div class="details">
 
-    <div class="detail">
 
-      <span class="label">
-        STATUS
-      </span>
+    <div class="box">
 
-      <span
+      <div class="label">
+
+        Status
+
+      </div>
+
+      <div
         class="value"
-        id="gps-status"
+        id="gpsStatus"
       >
-        TEST
-      </span>
+
+        --
+
+      </div>
 
     </div>
 
 
-    <div class="detail">
+    <div class="box">
 
-      <span class="label">
-        SPEED
-      </span>
+      <div class="label">
 
-      <span
+        Speed
+
+      </div>
+
+      <div
         class="value"
-        id="gps-speed"
+        id="speed"
       >
-        0 km/h
-      </span>
+
+        --
+
+      </div>
 
     </div>
 
 
-    <div class="detail">
+    <div class="box">
 
-      <span class="label">
-        SATELLITES
-      </span>
+      <div class="label">
 
-      <span
+        Satellites
+
+      </div>
+
+      <div
         class="value"
-        id="gps-satellites"
+        id="satellites"
       >
-        6
-      </span>
+
+        --
+
+      </div>
 
     </div>
 
 
-    <div class="detail">
+    <div class="box">
 
-      <span class="label">
-        LATITUDE
-      </span>
+      <div class="label">
 
-      <span
+        Latitude
+
+      </div>
+
+      <div
         class="value"
-        id="gps-lat"
+        id="latitude"
       >
-        10.156453
-      </span>
+
+        --
+
+      </div>
 
     </div>
 
 
-    <div class="detail">
+    <div class="box">
 
-      <span class="label">
-        LONGITUDE
-      </span>
+      <div class="label">
 
-      <span
+        Longitude
+
+      </div>
+
+      <div
         class="value"
-        id="gps-lon"
+        id="longitude"
       >
-        76.258558
-      </span>
+
+        --
+
+      </div>
+
+    </div>
+
+
+    <div class="box">
+
+      <div class="label">
+
+        Last Update
+
+      </div>
+
+      <div
+        class="value"
+        id="updateTime"
+      >
+
+        --
+
+      </div>
 
     </div>
 
@@ -225,11 +288,13 @@
     href="#"
     target="_blank"
   >
+
     Open in Google Maps
+
   </a>
 
 
-  <!-- Leaflet JavaScript -->
+  <!-- Leaflet -->
 
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -238,117 +303,578 @@
 
   <script>
 
-    // ==========================================
-    // TEST GPS LOCATION
-    // ==========================================
 
-    const latitude = 10.156453;
-
-    const longitude = 76.258558;
+    // =====================================================
+    // THINGSBOARD SETTINGS
+    // =====================================================
 
 
-    // ==========================================
-    // CREATE MAP
-    // ==========================================
+    const THINGSBOARD_URL =
+      "https://thingsboard.cloud";
+
+
+    // Your device Entity ID
+
+    const DEVICE_ID =
+      "512351b0-b9be-11f1-8553-d97f9e4a8828";
+
+
+    // =====================================================
+    // IMPORTANT
+    // =====================================================
+    // Create a ThingsBoard REST API key and put it here.
+    //
+    // DO NOT use the ESP32 device access token here.
+    //
+    // Example:
+    //
+    // const API_KEY = "YOUR_API_KEY";
+    // =====================================================
+
+
+    const API_KEY =
+      "YOUR_THINGSBOARD_API_KEY";
+
+
+    // =====================================================
+    // MAP
+    // =====================================================
+
 
     const map =
-      L.map("map").setView(
-        [latitude, longitude],
-        16
-      );
+      L.map("map")
+        .setView(
+          [10.156453, 76.258558],
+          15
+        );
 
-
-    // ==========================================
-    // OPENSTREETMAP
-    // ==========================================
 
     L.tileLayer(
+
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+
       {
+
         maxZoom: 19,
 
         attribution:
           "&copy; OpenStreetMap contributors"
+
       }
+
     ).addTo(map);
 
 
-    // ==========================================
-    // GPS MARKER
-    // ==========================================
+    // GPS marker
 
-    const marker =
-      L.marker(
-        [latitude, longitude]
-      )
-      .addTo(map)
-      .bindPopup(
-        "<b>📍 ESP32 GPS</b><br>" +
-        "Latitude: " +
-        latitude.toFixed(6) +
-        "<br>" +
-        "Longitude: " +
-        longitude.toFixed(6)
-      )
-      .openPopup();
+    let marker = null;
 
 
-    // ==========================================
-    // TEST ROUTE
-    // ==========================================
+    // Route line
 
-    const routePoints = [
-
-      [10.156453, 76.258558],
-
-      [10.156700, 76.259000],
-
-      [10.157000, 76.259500],
-
-      [10.157300, 76.260000],
-
-      [10.157600, 76.260500]
-
-    ];
-
-
-    const route =
+    let routeLine =
       L.polyline(
-        routePoints,
+        [],
         {
           weight: 5
         }
       ).addTo(map);
 
 
-    // ==========================================
-    // FIT MAP TO ROUTE
-    // ==========================================
+    let firstLocation = true;
 
-    map.fitBounds(
-      route.getBounds(),
-      {
-        padding: [30, 30]
+
+    // =====================================================
+    // GET TELEMETRY HISTORY
+    // =====================================================
+
+
+    async function getTelemetry() {
+
+
+      try {
+
+
+        const endTs =
+          Date.now();
+
+
+        // Last 24 hours
+
+        const startTs =
+          endTs -
+          (24 * 60 * 60 * 1000);
+
+
+        const url =
+
+          THINGSBOARD_URL +
+
+          "/api/plugins/telemetry/DEVICE/" +
+
+          DEVICE_ID +
+
+          "/values/timeseries" +
+
+          "?keys=latitude,longitude,speed,satellites" +
+
+          "&startTs=" +
+
+          startTs +
+
+          "&endTs=" +
+
+          endTs +
+
+          "&limit=10000" +
+
+          "&agg=NONE" +
+
+          "&orderBy=ASC";
+
+
+        const response =
+
+          await fetch(
+            url,
+            {
+
+              headers: {
+
+                "X-Authorization":
+                  "ApiKey " + API_KEY
+
+              }
+
+            }
+          );
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            "ThingsBoard error: " +
+            response.status
+          );
+
+        }
+
+
+        const data =
+          await response.json();
+
+
+        console.log(
+          "ThingsBoard data:",
+          data
+        );
+
+
+        // =================================================
+        // GET GPS ARRAYS
+        // =================================================
+
+
+        const latitudeData =
+          data.latitude || [];
+
+
+        const longitudeData =
+          data.longitude || [];
+
+
+        if (
+
+          latitudeData.length === 0 ||
+
+          longitudeData.length === 0
+
+        ) {
+
+          document.getElementById(
+            "status"
+          ).textContent =
+            "Waiting for GPS data...";
+
+          return;
+
+        }
+
+
+        // =================================================
+        // CREATE ROUTE
+        // =================================================
+
+
+        const points = [];
+
+
+        const longitudeMap =
+          new Map();
+
+
+        // Store longitude by timestamp
+
+        longitudeData.forEach(
+          item => {
+
+            longitudeMap.set(
+              item.ts,
+              Number(item.value)
+            );
+
+          }
+        );
+
+
+        latitudeData.forEach(
+          item => {
+
+
+            const latitude =
+              Number(item.value);
+
+
+            const longitude =
+              longitudeMap.get(
+                item.ts
+              );
+
+
+            if (
+
+              Number.isFinite(latitude) &&
+
+              Number.isFinite(longitude)
+
+            ) {
+
+              points.push(
+                [
+                  latitude,
+                  longitude
+                ]
+              );
+
+            }
+
+          }
+        );
+
+
+        if (points.length === 0) {
+
+          return;
+
+        }
+
+
+        // =================================================
+        // DRAW ROUTE
+        // =================================================
+
+
+        routeLine.setLatLngs(
+          points
+        );
+
+
+        // =================================================
+        // LATEST LOCATION
+        // =================================================
+
+
+        const latest =
+          points[
+            points.length - 1
+          ];
+
+
+        const latestLatitude =
+          latest[0];
+
+
+        const latestLongitude =
+          latest[1];
+
+
+        // =================================================
+        // UPDATE MARKER
+        // =================================================
+
+
+        if (marker === null) {
+
+
+          marker =
+            L.marker(latest)
+              .addTo(map)
+              .bindPopup(
+
+                "<b>📍 GPS Location</b><br>" +
+
+                "Latitude: " +
+
+                latestLatitude.toFixed(6) +
+
+                "<br>" +
+
+                "Longitude: " +
+
+                latestLongitude.toFixed(6)
+
+              );
+
+
+        } else {
+
+
+          marker.setLatLng(
+            latest
+          );
+
+
+          marker.setPopupContent(
+
+            "<b>📍 GPS Location</b><br>" +
+
+            "Latitude: " +
+
+            latestLatitude.toFixed(6) +
+
+            "<br>" +
+
+            "Longitude: " +
+
+            latestLongitude.toFixed(6)
+
+          );
+
+        }
+
+
+        // =================================================
+        // MOVE MAP
+        // =================================================
+
+
+        if (firstLocation) {
+
+
+          map.setView(
+            latest,
+            18
+          );
+
+
+          firstLocation = false;
+
+
+        } else {
+
+
+          map.panTo(
+            latest
+          );
+
+        }
+
+
+        // =================================================
+        // UPDATE GPS INFORMATION
+        // =================================================
+
+
+        document.getElementById(
+          "gpsStatus"
+        ).textContent =
+          "LIVE";
+
+
+        document.getElementById(
+          "gpsStatus"
+        ).style.color =
+          "lime";
+
+
+        document.getElementById(
+          "latitude"
+        ).textContent =
+          latestLatitude.toFixed(6);
+
+
+        document.getElementById(
+          "longitude"
+        ).textContent =
+          latestLongitude.toFixed(6);
+
+
+        // =================================================
+        // SPEED
+        // =================================================
+
+
+        if (
+          data.speed &&
+          data.speed.length
+        ) {
+
+
+          const latestSpeed =
+            Number(
+              data.speed[
+                data.speed.length - 1
+              ].value
+            );
+
+
+          document.getElementById(
+            "speed"
+          ).textContent =
+
+            Number.isFinite(
+              latestSpeed
+            )
+
+              ? latestSpeed.toFixed(2) +
+                " km/h"
+
+              : "--";
+
+        }
+
+
+        // =================================================
+        // SATELLITES
+        // =================================================
+
+
+        if (
+          data.satellites &&
+          data.satellites.length
+        ) {
+
+
+          const latestSatellites =
+            Number(
+              data.satellites[
+                data.satellites.length - 1
+              ].value
+            );
+
+
+          document.getElementById(
+            "satellites"
+          ).textContent =
+
+            Number.isFinite(
+              latestSatellites
+            )
+
+              ? latestSatellites
+
+              : "--";
+
+        }
+
+
+        // =================================================
+        // TIME
+        // =================================================
+
+
+        document.getElementById(
+          "updateTime"
+        ).textContent =
+
+          new Date()
+            .toLocaleTimeString();
+
+
+        // =================================================
+        // GOOGLE MAPS
+        // =================================================
+
+
+        document.getElementById(
+          "googleMaps"
+        ).href =
+
+          "https://www.google.com/maps?q=" +
+
+          latestLatitude +
+
+          "," +
+
+          latestLongitude;
+
+
+        document.getElementById(
+          "status"
+        ).textContent =
+
+          "GPS connected • " +
+
+          points.length +
+
+          " route points";
+
+
       }
+
+
+      catch (error) {
+
+
+        console.error(
+          "ThingsBoard error:",
+          error
+        );
+
+
+        document.getElementById(
+          "status"
+        ).textContent =
+
+          "ThingsBoard connection error";
+
+
+        document.getElementById(
+          "gpsStatus"
+        ).textContent =
+          "ERROR";
+
+
+        document.getElementById(
+          "gpsStatus"
+        ).style.color =
+          "red";
+
+      }
+
+    }
+
+
+    // =====================================================
+    // START
+    // =====================================================
+
+
+    getTelemetry();
+
+
+    // Refresh every 5 seconds
+
+    setInterval(
+      getTelemetry,
+      5000
     );
-
-
-    // ==========================================
-    // GOOGLE MAPS BUTTON
-    // ==========================================
-
-    document
-      .getElementById("googleMaps")
-      .href =
-        "https://www.google.com/maps?q=" +
-        latitude +
-        "," +
-        longitude;
 
 
   </script>
 
+
 </body>
 
 </html>
-```
+
