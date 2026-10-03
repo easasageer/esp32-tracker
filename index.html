@@ -1,43 +1,91 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>ESP32 Live Tracking</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
-  <!-- Leaflet Map -->
+  <title>ESP32 GPS Tracker</title>
+
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  >
 
   <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       background: #111;
       color: white;
+    }
+
+    header {
+      padding: 15px 20px;
+      background: #181818;
       text-align: center;
     }
 
-    h1 {
-      padding: 15px;
+    header h1 {
+      margin: 0;
+      font-size: 22px;
     }
 
     #status {
       padding: 10px;
-      font-size: 18px;
+      text-align: center;
+      background: #222;
+      color: #00ff66;
+      font-weight: bold;
     }
 
     #map {
-      height: 70vh;
       width: 100%;
+      height: 70vh;
+    }
+
+    #details {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      background: #181818;
+      padding: 12px;
+      gap: 8px;
+    }
+
+    .detail {
+      text-align: center;
+      padding: 8px;
+    }
+
+    .label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    .value {
+      display: block;
+      font-size: 15px;
+      font-weight: bold;
     }
 
     #googleMaps {
-      display: inline-block;
-      margin: 15px;
+      display: block;
+      width: fit-content;
+      margin: 15px auto;
       padding: 12px 20px;
       background: #4285F4;
       color: white;
@@ -49,18 +97,128 @@
     #googleMaps:hover {
       opacity: 0.85;
     }
+
+    @media (max-width: 700px) {
+
+      #map {
+        height: 65vh;
+      }
+
+      #details {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      header h1 {
+        font-size: 19px;
+      }
+
+    }
+
   </style>
+
 </head>
+
 
 <body>
 
-  <h1>📍 ESP32 Live GPS Tracking</h1>
+  <header>
+
+    <h1>📍 ESP32 GPS Tracker</h1>
+
+  </header>
+
 
   <div id="status">
-    Waiting for GPS...
+    MAP TEST — GPS NOT CONNECTED
   </div>
 
+
   <div id="map"></div>
+
+
+  <div id="details">
+
+    <div class="detail">
+
+      <span class="label">
+        STATUS
+      </span>
+
+      <span
+        class="value"
+        id="gps-status"
+      >
+        TEST
+      </span>
+
+    </div>
+
+
+    <div class="detail">
+
+      <span class="label">
+        SPEED
+      </span>
+
+      <span
+        class="value"
+        id="gps-speed"
+      >
+        0 km/h
+      </span>
+
+    </div>
+
+
+    <div class="detail">
+
+      <span class="label">
+        SATELLITES
+      </span>
+
+      <span
+        class="value"
+        id="gps-satellites"
+      >
+        6
+      </span>
+
+    </div>
+
+
+    <div class="detail">
+
+      <span class="label">
+        LATITUDE
+      </span>
+
+      <span
+        class="value"
+        id="gps-lat"
+      >
+        10.156453
+      </span>
+
+    </div>
+
+
+    <div class="detail">
+
+      <span class="label">
+        LONGITUDE
+      </span>
+
+      <span
+        class="value"
+        id="gps-lon"
+      >
+        76.258558
+      </span>
+
+    </div>
+
+  </div>
+
 
   <a
     id="googleMaps"
@@ -71,49 +229,126 @@
   </a>
 
 
-  <!-- Leaflet -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet JavaScript -->
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
 
 
-  <!-- Firebase -->
-  <script type="module">
+  <script>
 
-    import { initializeApp }
-      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    // ==========================================
+    // TEST GPS LOCATION
+    // ==========================================
 
-    import {
-      getDatabase,
-      ref,
-      onValue
-    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+    const latitude = 10.156453;
+
+    const longitude = 76.258558;
 
 
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBSUV2dALeMNdCHuTmdMFSARIuXkMNQkzc",
-      authDomain: "esp32-ad9a9.firebaseapp.com",
-      databaseURL: "https://esp32-ad9a9-default-rtdb.firebaseio.com",
-      projectId: "esp32-ad9a9",
-      storageBucket: "esp32-ad9a9.firebasestorage.app",
-      messagingSenderId: "435399263466",
-      appId: "1:435399263466:web:fa74af2bb5804bb7090393"
-    };
+    // ==========================================
+    // CREATE MAP
+    // ==========================================
+
+    const map =
+      L.map("map").setView(
+        [latitude, longitude],
+        16
+      );
 
 
-    // Start Firebase
-    const app = initializeApp(firebaseConfig);
+    // ==========================================
+    // OPENSTREETMAP
+    // ==========================================
 
-    const database = getDatabase(app);
-
-
-    // Firebase GPS location
-    const gpsRef = ref(database, "gps");
-
-
-    // Create map
-    const map = L.map("map").setView([10, 76], 15);
-
-
-    // OpenStreetMap tiles
     L.tileLayer(
-      "https
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+
+        attribution:
+          "&copy; OpenStreetMap contributors"
+      }
+    ).addTo(map);
+
+
+    // ==========================================
+    // GPS MARKER
+    // ==========================================
+
+    const marker =
+      L.marker(
+        [latitude, longitude]
+      )
+      .addTo(map)
+      .bindPopup(
+        "<b>📍 ESP32 GPS</b><br>" +
+        "Latitude: " +
+        latitude.toFixed(6) +
+        "<br>" +
+        "Longitude: " +
+        longitude.toFixed(6)
+      )
+      .openPopup();
+
+
+    // ==========================================
+    // TEST ROUTE
+    // ==========================================
+
+    const routePoints = [
+
+      [10.156453, 76.258558],
+
+      [10.156700, 76.259000],
+
+      [10.157000, 76.259500],
+
+      [10.157300, 76.260000],
+
+      [10.157600, 76.260500]
+
+    ];
+
+
+    const route =
+      L.polyline(
+        routePoints,
+        {
+          weight: 5
+        }
+      ).addTo(map);
+
+
+    // ==========================================
+    // FIT MAP TO ROUTE
+    // ==========================================
+
+    map.fitBounds(
+      route.getBounds(),
+      {
+        padding: [30, 30]
+      }
+    );
+
+
+    // ==========================================
+    // GOOGLE MAPS BUTTON
+    // ==========================================
+
+    document
+      .getElementById("googleMaps")
+      .href =
+        "https://www.google.com/maps?q=" +
+        latitude +
+        "," +
+        longitude;
+
+
+  </script>
+
+</body>
+
+</html>
+```
