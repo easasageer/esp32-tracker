@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 
@@ -164,18 +165,14 @@
     <div class="box">
 
       <div class="label">
-
         Status
-
       </div>
 
       <div
         class="value"
         id="gpsStatus"
       >
-
         --
-
       </div>
 
     </div>
@@ -184,18 +181,14 @@
     <div class="box">
 
       <div class="label">
-
         Speed
-
       </div>
 
       <div
         class="value"
         id="speed"
       >
-
         --
-
       </div>
 
     </div>
@@ -204,18 +197,14 @@
     <div class="box">
 
       <div class="label">
-
         Satellites
-
       </div>
 
       <div
         class="value"
         id="satellites"
       >
-
         --
-
       </div>
 
     </div>
@@ -224,18 +213,14 @@
     <div class="box">
 
       <div class="label">
-
         Latitude
-
       </div>
 
       <div
         class="value"
         id="latitude"
       >
-
         --
-
       </div>
 
     </div>
@@ -244,18 +229,14 @@
     <div class="box">
 
       <div class="label">
-
         Longitude
-
       </div>
 
       <div
         class="value"
         id="longitude"
       >
-
         --
-
       </div>
 
     </div>
@@ -264,18 +245,14 @@
     <div class="box">
 
       <div class="label">
-
         Last Update
-
       </div>
 
       <div
         class="value"
         id="updateTime"
       >
-
         --
-
       </div>
 
     </div>
@@ -288,9 +265,7 @@
     href="#"
     target="_blank"
   >
-
     Open in Google Maps
-
   </a>
 
 
@@ -313,27 +288,36 @@
       "https://thingsboard.cloud";
 
 
-    // Your device Entity ID
-
     const DEVICE_ID =
       "512351b0-b9be-11f1-8553-d97f9e4a8828";
 
 
     // =====================================================
-    // IMPORTANT
+    // PUT YOUR NEW API KEY HERE
     // =====================================================
-    // Create a ThingsBoard REST API key and put it here.
-    //
-    // DO NOT use the ESP32 device access token here.
-    //
-    // Example:
-    //
-    // const API_KEY = "YOUR_API_KEY";
-    // =====================================================
-
 
     const API_KEY =
       "tb_MmtobP-6M4HXI0Qu_u5uKyi-GVd7QTdlPsUa0j0Wo9QIiuL6tJ3pKxBT0Q-RYTSZVPqn-QMm6B-dpqpSKaM-Dw";
+
+
+    // =====================================================
+    // GPS FILTER SETTINGS
+    // =====================================================
+
+    // Ignore GPS movement smaller than this distance
+    // when building the route.
+
+    const MIN_MOVEMENT_METERS = 2;
+
+
+    // Ignore impossible GPS jumps.
+
+    const MAX_SPEED_KMPH = 120;
+
+
+    // Display anything below this as 0 km/h.
+
+    const STATIONARY_SPEED_KMPH = 3;
 
 
     // =====================================================
@@ -365,12 +349,18 @@
     ).addTo(map);
 
 
-    // GPS marker
+    // =====================================================
+    // GPS MARKER
+    // =====================================================
+
 
     let marker = null;
 
 
-    // Route line
+    // =====================================================
+    // ROUTE LINE
+    // =====================================================
+
 
     let routeLine =
       L.polyline(
@@ -385,7 +375,253 @@
 
 
     // =====================================================
-    // GET TELEMETRY HISTORY
+    // HAVERSINE DISTANCE
+    // =====================================================
+
+
+    function distanceMeters(
+      lat1,
+      lon1,
+      lat2,
+      lon2
+    ) {
+
+
+      const R = 6371000;
+
+
+      const dLat =
+        (lat2 - lat1) *
+        Math.PI / 180;
+
+
+      const dLon =
+        (lon2 - lon1) *
+        Math.PI / 180;
+
+
+      const a =
+
+        Math.sin(dLat / 2) *
+        Math.sin(dLat / 2) +
+
+        Math.cos(
+          lat1 * Math.PI / 180
+        ) *
+
+        Math.cos(
+          lat2 * Math.PI / 180
+        ) *
+
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+
+      const c =
+        2 *
+        Math.atan2(
+          Math.sqrt(a),
+          Math.sqrt(1 - a)
+        );
+
+
+      return R * c;
+
+    }
+
+
+    // =====================================================
+    // CLEAN GPS ROUTE
+    // =====================================================
+
+
+    function buildCleanRoute(
+      latitudeData,
+      longitudeData
+    ) {
+
+
+      const longitudeMap =
+        new Map();
+
+
+      // Match longitude using timestamp
+
+      longitudeData.forEach(
+        item => {
+
+          longitudeMap.set(
+            item.ts,
+            Number(item.value)
+          );
+
+        }
+      );
+
+
+      // Create timestamped GPS points
+
+      const rawPoints = [];
+
+
+      latitudeData.forEach(
+        item => {
+
+
+          const latitude =
+            Number(item.value);
+
+
+          const longitude =
+            longitudeMap.get(
+              item.ts
+            );
+
+
+          if (
+
+            Number.isFinite(latitude) &&
+
+            Number.isFinite(longitude) &&
+
+            latitude >= -90 &&
+
+            latitude <= 90 &&
+
+            longitude >= -180 &&
+
+            longitude <= 180
+
+          ) {
+
+
+            rawPoints.push({
+
+              lat: latitude,
+
+              lon: longitude,
+
+              ts: Number(item.ts)
+
+            });
+
+          }
+
+        }
+      );
+
+
+      // Sort chronologically
+
+      rawPoints.sort(
+        (a, b) =>
+          a.ts - b.ts
+      );
+
+
+      if (rawPoints.length === 0) {
+
+        return [];
+
+      }
+
+
+      // First point is always accepted
+
+      const cleanPoints = [
+        rawPoints[0]
+      ];
+
+
+      for (
+        let i = 1;
+        i < rawPoints.length;
+        i++
+      ) {
+
+
+        const previous =
+          cleanPoints[
+            cleanPoints.length - 1
+          ];
+
+
+        const current =
+          rawPoints[i];
+
+
+        const distance =
+          distanceMeters(
+
+            previous.lat,
+            previous.lon,
+
+            current.lat,
+            current.lon
+
+          );
+
+
+        const timeSeconds =
+          Math.max(
+
+            (current.ts -
+             previous.ts) / 1000,
+
+            1
+
+          );
+
+
+        const calculatedSpeed =
+          (distance / timeSeconds) *
+          3.6;
+
+
+        // Ignore impossible GPS jump
+
+        if (
+          calculatedSpeed >
+          MAX_SPEED_KMPH
+        ) {
+
+          console.log(
+            "Ignored GPS jump:",
+            calculatedSpeed.toFixed(1),
+            "km/h"
+          );
+
+          continue;
+
+        }
+
+
+        // Ignore tiny stationary GPS noise
+
+        if (
+          distance <
+          MIN_MOVEMENT_METERS
+        ) {
+
+          continue;
+
+        }
+
+
+        cleanPoints.push(
+          current
+        );
+
+      }
+
+
+      return cleanPoints;
+
+    }
+
+
+    // =====================================================
+    // GET TELEMETRY
     // =====================================================
 
 
@@ -434,7 +670,6 @@
 
 
         const response =
-
           await fetch(
             url,
             {
@@ -471,7 +706,7 @@
 
 
         // =================================================
-        // GET GPS ARRAYS
+        // GPS DATA
         // =================================================
 
 
@@ -491,78 +726,12 @@
 
         ) {
 
+
           document.getElementById(
             "status"
           ).textContent =
             "Waiting for GPS data...";
 
-          return;
-
-        }
-
-
-        // =================================================
-        // CREATE ROUTE
-        // =================================================
-
-
-        const points = [];
-
-
-        const longitudeMap =
-          new Map();
-
-
-        // Store longitude by timestamp
-
-        longitudeData.forEach(
-          item => {
-
-            longitudeMap.set(
-              item.ts,
-              Number(item.value)
-            );
-
-          }
-        );
-
-
-        latitudeData.forEach(
-          item => {
-
-
-            const latitude =
-              Number(item.value);
-
-
-            const longitude =
-              longitudeMap.get(
-                item.ts
-              );
-
-
-            if (
-
-              Number.isFinite(latitude) &&
-
-              Number.isFinite(longitude)
-
-            ) {
-
-              points.push(
-                [
-                  latitude,
-                  longitude
-                ]
-              );
-
-            }
-
-          }
-        );
-
-
-        if (points.length === 0) {
 
           return;
 
@@ -570,32 +739,65 @@
 
 
         // =================================================
-        // DRAW ROUTE
+        // BUILD CLEAN ROUTE
         // =================================================
+
+
+        const cleanPoints =
+          buildCleanRoute(
+
+            latitudeData,
+
+            longitudeData
+
+          );
+
+
+        if (
+          cleanPoints.length === 0
+        ) {
+
+          return;
+
+        }
+
+
+        // =================================================
+        // DRAW CLEAN ROUTE
+        // =================================================
+
+
+        const routeCoordinates =
+          cleanPoints.map(
+            point => [
+              point.lat,
+              point.lon
+            ]
+          );
 
 
         routeLine.setLatLngs(
-          points
+          routeCoordinates
         );
 
 
         // =================================================
-        // LATEST LOCATION
+        // LATEST VALID LOCATION
         // =================================================
 
 
         const latest =
-          points[
-            points.length - 1
+          cleanPoints[
+            cleanPoints.length - 1
           ];
 
 
         const latestLatitude =
-          latest[0];
+          latest.lat;
 
 
         const latestLongitude =
-          latest[1];
+          latest.lon;
 
 
         // =================================================
@@ -603,34 +805,45 @@
         // =================================================
 
 
+        const latestPosition = [
+
+          latestLatitude,
+
+          latestLongitude
+
+        ];
+
+
         if (marker === null) {
 
 
           marker =
-            L.marker(latest)
-              .addTo(map)
-              .bindPopup(
+            L.marker(
+              latestPosition
+            )
+            .addTo(map)
+            .bindPopup(
 
-                "<b>📍 GPS Location</b><br>" +
+              "<b>📍 GPS Location</b><br>" +
 
-                "Latitude: " +
+              "Latitude: " +
 
-                latestLatitude.toFixed(6) +
+              latestLatitude.toFixed(6) +
 
-                "<br>" +
+              "<br>" +
 
-                "Longitude: " +
+              "Longitude: " +
 
-                latestLongitude.toFixed(6)
+              latestLongitude.toFixed(6)
 
-              );
+            );
 
 
         } else {
 
 
           marker.setLatLng(
-            latest
+            latestPosition
           );
 
 
@@ -662,7 +875,7 @@
 
 
           map.setView(
-            latest,
+            latestPosition,
             18
           );
 
@@ -674,14 +887,14 @@
 
 
           map.panTo(
-            latest
+            latestPosition
           );
 
         }
 
 
         // =================================================
-        // UPDATE GPS INFORMATION
+        // UPDATE STATUS
         // =================================================
 
 
@@ -715,31 +928,53 @@
 
 
         if (
+
           data.speed &&
+
           data.speed.length
+
         ) {
 
 
           const latestSpeed =
             Number(
+
               data.speed[
                 data.speed.length - 1
               ].value
+
             );
+
+
+          let displaySpeed =
+            latestSpeed;
+
+
+          // Remove GPS speed noise
+
+          if (
+
+            !Number.isFinite(
+              displaySpeed
+            ) ||
+
+            displaySpeed <
+            STATIONARY_SPEED_KMPH
+
+          ) {
+
+            displaySpeed = 0;
+
+          }
 
 
           document.getElementById(
             "speed"
           ).textContent =
 
-            Number.isFinite(
-              latestSpeed
-            )
+            displaySpeed.toFixed(2) +
 
-              ? latestSpeed.toFixed(2) +
-                " km/h"
-
-              : "--";
+            " km/h";
 
         }
 
@@ -750,16 +985,21 @@
 
 
         if (
+
           data.satellites &&
+
           data.satellites.length
+
         ) {
 
 
           const latestSatellites =
             Number(
+
               data.satellites[
                 data.satellites.length - 1
               ].value
+
             );
 
 
@@ -779,7 +1019,7 @@
 
 
         // =================================================
-        // TIME
+        // LAST UPDATE
         // =================================================
 
 
@@ -809,15 +1049,20 @@
           latestLongitude;
 
 
+        // =================================================
+        // STATUS MESSAGE
+        // =================================================
+
+
         document.getElementById(
           "status"
         ).textContent =
 
           "GPS connected • " +
 
-          points.length +
+          cleanPoints.length +
 
-          " route points";
+          " clean route points";
 
 
       }
@@ -873,8 +1118,7 @@
 
   </script>
 
-
 </body>
 
 </html>
-
+```
