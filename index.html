@@ -1,682 +1,425 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32 GPS Tracker</title>
 
-
-  <!-- Leaflet -->
-
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  >
-
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
+    * { box-sizing: border-box; }
 
     body {
-
       margin: 0;
-
       font-family: Arial, sans-serif;
-
       background: #111;
-
       color: white;
-
-      text-align: center;
-
     }
-
 
     h1 {
-
-      padding: 15px;
-
       margin: 0;
-
+      padding: 16px;
+      text-align: center;
     }
 
-
-    #status {
-
-      padding: 10px;
-
-      font-size: 18px;
-
+    #status, #tileStatus {
+      text-align: center;
+      padding: 8px;
     }
 
+    #tileStatus {
+      color: #ffd166;
+      font-size: 13px;
+    }
 
     #map {
-
-      height: 70vh;
-
+      height: 65vh;
+      min-height: 350px;
       width: 100%;
-
+      background: #ddd;
     }
 
+    .controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 14px;
+    }
+
+    button, select, .map-link {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 7px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #333;
+      color: white;
+      cursor: pointer;
+    }
+
+    button.active {
+      background: #1677ff;
+    }
+
+    select {
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+    }
+
+    .map-link {
+      display: inline-block;
+      background: #4285f4;
+      color: white;
+      text-decoration: none;
+    }
 
     .details {
-
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-
-      padding: 15px;
-
+      padding: 12px;
     }
-
 
     .box {
-
       background: #222;
-
-      padding: 12px;
-
+      padding: 13px;
       border-radius: 8px;
-
+      overflow-wrap: anywhere;
     }
-
 
     .label {
-
       font-size: 13px;
-
       color: #aaa;
-
     }
-
 
     .value {
-
-      font-size: 18px;
-
+      font-size: 17px;
       font-weight: bold;
-
-      margin-top: 5px;
-
+      margin-top: 6px;
     }
 
-
-    #googleMaps {
-
-      display: inline-block;
-
-      margin: 15px;
-
-      padding: 12px 20px;
-
-      background: #4285F4;
-
-      color: white;
-
-      text-decoration: none;
-
-      border-radius: 8px;
-
-      font-weight: bold;
-
+    @media (min-width: 700px) {
+      .details {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
     }
-
-
-    #googleMaps:hover {
-
-      opacity: 0.85;
-
-    }
-
   </style>
-
 </head>
 
-
 <body>
-
-
   <h1>📍 ESP32 GPS Tracker</h1>
 
-
-  <div id="status">
-
-    Connecting to ThingsBoard...
-
-  </div>
-
+  <div id="status">Connecting to ThingsBoard...</div>
+  <div id="tileStatus">Loading map tiles...</div>
 
   <div id="map"></div>
 
+  <div class="controls">
+    <button id="liveButton" class="active">Live</button>
+    <button id="historyButton">History</button>
 
-  <div class="details">
+    <select id="historyRange" aria-label="History time range">
+      <option value="1">Last 1 hour</option>
+      <option value="6">Last 6 hours</option>
+      <option value="24" selected>Last 24 hours</option>
+    </select>
 
-
-    <div class="box">
-
-      <div class="label">
-        Status
-      </div>
-
-      <div
-        class="value"
-        id="gpsStatus"
-      >
-        --
-      </div>
-
-    </div>
-
-
-    <div class="box">
-
-      <div class="label">
-        Speed
-      </div>
-
-      <div
-        class="value"
-        id="speed"
-      >
-        --
-      </div>
-
-    </div>
-
-
-    <div class="box">
-
-      <div class="label">
-        Satellites
-      </div>
-
-      <div
-        class="value"
-        id="satellites"
-      >
-        --
-      </div>
-
-    </div>
-
-
-    <div class="box">
-
-      <div class="label">
-        Latitude
-      </div>
-
-      <div
-        class="value"
-        id="latitude"
-      >
-        --
-      </div>
-
-    </div>
-
-
-    <div class="box">
-
-      <div class="label">
-        Longitude
-      </div>
-
-      <div
-        class="value"
-        id="longitude"
-      >
-        --
-      </div>
-
-    </div>
-
-
-    <div class="box">
-
-      <div class="label">
-        Last Update
-      </div>
-
-      <div
-        class="value"
-        id="updateTime"
-      >
-        --
-      </div>
-
-    </div>
-
+    <a id="googleMaps" class="map-link"
+       href="https://www.google.com/maps"
+       target="_blank" rel="noopener">
+      Open in Google Maps
+    </a>
   </div>
 
+  <div class="details">
+    <div class="box">
+      <div class="label">GPS Status</div>
+      <div class="value" id="gpsStatus">WAITING</div>
+    </div>
 
-  <a
-    id="googleMaps"
-    href="#"
-    target="_blank"
-  >
-    Open in Google Maps
-  </a>
+    <div class="box">
+      <div class="label">Speed</div>
+      <div class="value" id="speed">--</div>
+    </div>
 
+    <div class="box">
+      <div class="label">Satellites</div>
+      <div class="value" id="satellites">--</div>
+    </div>
 
-  <!-- Leaflet -->
+    <div class="box">
+      <div class="label">Latitude</div>
+      <div class="value" id="latitude">--</div>
+    </div>
 
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  ></script>
+    <div class="box">
+      <div class="label">Longitude</div>
+      <div class="value" id="longitude">--</div>
+    </div>
 
+    <div class="box">
+      <div class="label">Last GPS Timestamp</div>
+      <div class="value" id="updateTime">--</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-
-
     // =====================================================
     // THINGSBOARD SETTINGS
     // =====================================================
 
-
-    const THINGSBOARD_URL =
-      "https://thingsboard.cloud";
-
+    const THINGSBOARD_URL = "https://thingsboard.cloud";
 
     const DEVICE_ID =
       "512351b0-b9be-11f1-8553-d97f9e4a8828";
 
-
-    // =====================================================
-    // PUT YOUR NEW API KEY HERE
-    // =====================================================
-
-    // Paste a NEWLY REGENERATED ThingsBoard API key here.
-    // The key in the uploaded file was exposed, so revoke/rotate it first.
-    const API_KEY =
-      "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg";
-
+    // Replace with your newly regenerated ThingsBoard API key.
+    const API_KEY = "PASTE_NEW_THINGSBOARD_API_KEY_HERE";
 
     // =====================================================
     // GPS FILTER SETTINGS
     // =====================================================
 
-    // Ignore GPS movement smaller than this distance
-    // when building the route.
-
     const MIN_MOVEMENT_METERS = 2;
-
-
-    // Ignore impossible GPS jumps.
-
     const MAX_SPEED_KMPH = 120;
-
-
-    // Display anything below this as 0 km/h.
-
     const STATIONARY_SPEED_KMPH = 3;
 
-
     // =====================================================
-    // MAP
+    // MAP AND BACKUP TILE PROVIDER
     // =====================================================
 
+    const map = L.map("map").setView(
+      [10.156453, 76.258558], 15
+    );
 
-    const map =
-      L.map("map")
-        .setView(
-          [10.156453, 76.258558],
-          15
-        );
-
-
-    L.tileLayer(
-
+    const osmTiles = L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-
       {
-
         maxZoom: 19,
-
-        attribution:
-          "&copy; OpenStreetMap contributors"
-
+        attribution: "&copy; OpenStreetMap contributors"
       }
+    );
 
-    ).addTo(map);
+    const esriTiles = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution: "Tiles &copy; Esri"
+      }
+    );
 
+    let usingEsri = false;
+    let osmErrors = 0;
+    let esriErrors = 0;
+
+    osmTiles.on("tileerror", () => {
+      osmErrors++;
+
+      if (osmErrors >= 3 && !usingEsri) {
+        usingEsri = true;
+        map.removeLayer(osmTiles);
+        esriTiles.addTo(map);
+
+        document.getElementById("tileStatus").textContent =
+          "OpenStreetMap failed; trying backup street map...";
+      }
+    });
+
+    esriTiles.on("tileload", () => {
+      esriErrors = 0;
+      document.getElementById("tileStatus").textContent =
+        usingEsri ? "Using Esri street-map tiles" :
+                    "Using OpenStreetMap tiles";
+    });
+
+    esriTiles.on("tileerror", () => {
+      esriErrors++;
+
+      if (esriErrors >= 3) {
+        document.getElementById("tileStatus").textContent =
+          "Map tiles are not loading. Check internet access, browser extensions, or network restrictions.";
+      }
+    });
+
+    osmTiles.addTo(map);
+
+    window.addEventListener("load", () => {
+      setTimeout(() => map.invalidateSize(), 300);
+    });
 
     // =====================================================
-    // GPS MARKER
+    // MAP MARKERS AND ROUTE LAYERS
     // =====================================================
-
 
     let marker = null;
 
+    const rawRouteLine = L.polyline([], {
+      color: "#ffd166",
+      weight: 4,
+      opacity: 0.8
+    }).addTo(map);
 
-    // =====================================================
-    // ROUTE LINE
-    // =====================================================
-
-
-    let routeLine =
-      L.polyline(
-        [],
-        {
-          weight: 5
-        }
-      ).addTo(map);
-
+    const matchedRouteLayer = L.layerGroup().addTo(map);
 
     let firstLocation = true;
+    let viewMode = "live";
 
-    // OSRM road matching state. We road-match only the newest
-    // 100 cleaned points to avoid excessive requests to the public demo service.
-    let lastMatchedLatestTs = 0;
-    let lastMatchAt = 0;
     let matchInProgress = false;
+    let lastMatchAt = 0;
+    let lastMatchedSignature = "";
     let hasRoadMatchedRoute = false;
 
-
     // =====================================================
-    // HAVERSINE DISTANCE
+    // DISTANCE CALCULATION
     // =====================================================
 
+    function distanceMeters(a, b) {
+      const rad = Math.PI / 180;
+      const dLat = (b.lat - a.lat) * rad;
+      const dLon = (b.lon - a.lon) * rad;
 
-    function distanceMeters(
-      lat1,
-      lon1,
-      lat2,
-      lon2
-    ) {
+      const value =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(a.lat * rad) *
+        Math.cos(b.lat * rad) *
+        Math.sin(dLon / 2) ** 2;
 
-
-      const R = 6371000;
-
-
-      const dLat =
-        (lat2 - lat1) *
-        Math.PI / 180;
-
-
-      const dLon =
-        (lon2 - lon1) *
-        Math.PI / 180;
-
-
-      const a =
-
-        Math.sin(dLat / 2) *
-        Math.sin(dLat / 2) +
-
-        Math.cos(
-          lat1 * Math.PI / 180
-        ) *
-
-        Math.cos(
-          lat2 * Math.PI / 180
-        ) *
-
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
-
-      const c =
-        2 *
-        Math.atan2(
-          Math.sqrt(a),
-          Math.sqrt(1 - a)
-        );
-
-
-      return R * c;
-
+      return 6371000 * 2 *
+        Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
     }
 
-
     // =====================================================
-    // CLEAN GPS ROUTE
+    // BUILD GPS POINTS FROM THINGSBOARD TELEMETRY
     // =====================================================
 
+    function buildCleanRoute(latitudeData, longitudeData) {
+      const longitudeByTimestamp = new Map();
 
-    function buildCleanRoute(
-      latitudeData,
-      longitudeData
-    ) {
-
-
-      const longitudeMap =
-        new Map();
-
-
-      // Match longitude using timestamp
-
-      longitudeData.forEach(
-        item => {
-
-          longitudeMap.set(
-            item.ts,
-            Number(item.value)
-          );
-
-        }
-      );
-
-
-      // Create timestamped GPS points
+      longitudeData.forEach(item => {
+        longitudeByTimestamp.set(Number(item.ts), Number(item.value));
+      });
 
       const rawPoints = [];
 
-
-      latitudeData.forEach(
-        item => {
-
-
-          const latitude =
-            Number(item.value);
-
-
-          const longitude =
-            longitudeMap.get(
-              item.ts
-            );
-
-
-          if (
-
-            Number.isFinite(latitude) &&
-
-            Number.isFinite(longitude) &&
-
-            latitude >= -90 &&
-
-            latitude <= 90 &&
-
-            longitude >= -180 &&
-
-            longitude <= 180
-
-          ) {
-
-
-            rawPoints.push({
-
-              lat: latitude,
-
-              lon: longitude,
-
-              ts: Number(item.ts)
-
-            });
-
-          }
-
-        }
-      );
-
-
-      // Sort chronologically
-
-      rawPoints.sort(
-        (a, b) =>
-          a.ts - b.ts
-      );
-
-
-      if (rawPoints.length === 0) {
-
-        return [];
-
-      }
-
-
-      // First point is always accepted
-
-      const cleanPoints = [
-        rawPoints[0]
-      ];
-
-
-      for (
-        let i = 1;
-        i < rawPoints.length;
-        i++
-      ) {
-
-
-        const previous =
-          cleanPoints[
-            cleanPoints.length - 1
-          ];
-
-
-        const current =
-          rawPoints[i];
-
-
-        const distance =
-          distanceMeters(
-
-            previous.lat,
-            previous.lon,
-
-            current.lat,
-            current.lon
-
-          );
-
-
-        const timeSeconds =
-          Math.max(
-
-            (current.ts -
-             previous.ts) / 1000,
-
-            1
-
-          );
-
-
-        const calculatedSpeed =
-          (distance / timeSeconds) *
-          3.6;
-
-
-        // Ignore impossible GPS jump
+      latitudeData.forEach(item => {
+        const lat = Number(item.value);
+        const ts = Number(item.ts);
+        const lon = longitudeByTimestamp.get(ts);
 
         if (
-          calculatedSpeed >
-          MAX_SPEED_KMPH
+          Number.isFinite(lat) &&
+          Number.isFinite(lon) &&
+          Number.isFinite(ts) &&
+          lat >= -90 && lat <= 90 &&
+          lon >= -180 && lon <= 180
         ) {
-
-          console.log(
-            "Ignored GPS jump:",
-            calculatedSpeed.toFixed(1),
-            "km/h"
-          );
-
-          continue;
-
+          rawPoints.push({ lat, lon, ts });
         }
+      });
 
+      rawPoints.sort((a, b) => a.ts - b.ts);
 
-        // Ignore tiny stationary GPS noise
+      const uniquePoints = [];
+      const seen = new Set();
 
-        if (
-          distance <
-          MIN_MOVEMENT_METERS
-        ) {
-
-          continue;
-
+      rawPoints.forEach(point => {
+        const key = `${point.ts}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniquePoints.push(point);
         }
+      });
 
+      if (!uniquePoints.length) return [];
 
-        cleanPoints.push(
-          current
-        );
+      const clean = [uniquePoints[0]];
 
+      for (let i = 1; i < uniquePoints.length; i++) {
+        const previous = clean[clean.length - 1];
+        const current = uniquePoints[i];
+
+        const distance = distanceMeters(previous, current);
+        const elapsed = Math.max((current.ts - previous.ts) / 1000, 1);
+        const speed = distance / elapsed * 3.6;
+
+        if (speed > MAX_SPEED_KMPH) continue;
+        if (distance < MIN_MOVEMENT_METERS) continue;
+
+        clean.push(current);
       }
 
-
-      return cleanPoints;
-
+      return clean;
     }
 
-
     // =====================================================
-    // SNAP GPS TRACE TO ROADS USING OSRM MATCH API
+    // ROAD MATCHING WITH OSRM
     // =====================================================
 
-    async function snapRouteToRoad(cleanPoints) {
-      if (!cleanPoints || cleanPoints.length < 2 || matchInProgress) {
-        return;
+    // Reduce the request to at most 100 points spread across the selected
+    // time range. OSRM is a public demo service and may be unavailable.
+    function samplePoints(points, maxPoints = 100) {
+      if (points.length <= maxPoints) return points;
+
+      const sampled = [];
+      const lastIndex = points.length - 1;
+
+      for (let i = 0; i < maxPoints; i++) {
+        const index = Math.round(i * lastIndex / (maxPoints - 1));
+        sampled.push(points[index]);
       }
 
-      const latestTs = cleanPoints[cleanPoints.length - 1].ts;
-      const now = Date.now();
+      return sampled;
+    }
 
-      // Don't send the same trace repeatedly. Refresh at most every 30 seconds.
-      if (
-        latestTs === lastMatchedLatestTs ||
-        (lastMatchAt > 0 && now - lastMatchAt < 30000)
-      ) {
-        return;
-      }
+    async function snapRouteToRoad(points) {
+      if (points.length < 2 || matchInProgress) return;
 
-      // OSRM's public demo service is not intended for high-volume use.
-      // Match the most recent 100 points only.
-      const points = cleanPoints.slice(-100);
-      if (points.length < 2) return;
+      const sampled = samplePoints(points, 100);
+      if (sampled.length < 2) return;
+
+      const signature =
+        `${sampled[0].ts}-${sampled[sampled.length - 1].ts}-${sampled.length}`;
+
+      if (signature === lastMatchedSignature) return;
+
+      // Avoid sending repeated requests too frequently.
+      if (Date.now() - lastMatchAt < 30000) return;
 
       matchInProgress = true;
-      lastMatchAt = now;
+      lastMatchAt = Date.now();
 
       try {
-        const coordinates = points
-          .map(point => `${point.lon},${point.lat}`)
+        const coordinates = sampled
+          .map(p => `${p.lon},${p.lat}`)
           .join(";");
 
-        const timestamps = points
-          .map(point => Math.floor(point.ts / 1000))
+        const timestamps = sampled
+          .map(p => Math.floor(p.ts / 1000))
           .join(";");
 
-        const radiuses = points.map(() => "20").join(";");
+        const radiuses = sampled.map(() => "25").join(";");
 
-        const matchUrl =
+        const url =
           "https://router.project-osrm.org/match/v1/driving/" +
           coordinates +
-          "?geometries=geojson&overview=full&tidy=true&gaps=split" +
+          "?overview=full&geometries=geojson&gaps=split&tidy=true" +
           "&timestamps=" + timestamps +
           "&radiuses=" + radiuses;
 
-        const response = await fetch(matchUrl);
+        const response = await fetch(url);
+
         if (!response.ok) {
-          throw new Error("OSRM match HTTP " + response.status);
+          throw new Error("Road matching HTTP " + response.status);
         }
 
         const result = await response.json();
@@ -686,538 +429,259 @@
           !Array.isArray(result.matchings) ||
           result.matchings.length === 0
         ) {
-          throw new Error("OSRM could not match this GPS trace");
+          throw new Error(result.code || "No matching route returned");
         }
 
-        // A trace can be split into several matchings when GPS points have gaps.
-        // Keep each matched section as a separate Leaflet line so gaps aren't
-        // drawn as artificial straight connectors.
-        const snappedSections = result.matchings
-          .filter(m => m.geometry && Array.isArray(m.geometry.coordinates))
-          .map(m =>
-            m.geometry.coordinates.map(([lon, lat]) => [lat, lon])
-          )
-          .filter(section => section.length > 1);
+        matchedRouteLayer.clearLayers();
 
-        if (snappedSections.length === 0) {
-          throw new Error("No matched road geometry returned");
+        let sectionCount = 0;
+
+        result.matchings.forEach(matching => {
+          const coords = matching.geometry?.coordinates;
+
+          if (!Array.isArray(coords) || coords.length < 2) return;
+
+          const latLngs = coords.map(([lon, lat]) => [lat, lon]);
+
+          L.polyline(latLngs, {
+            color: "#00e5ff",
+            weight: 5,
+            opacity: 0.95
+          }).addTo(matchedRouteLayer);
+
+          sectionCount++;
+        });
+
+        if (!sectionCount) {
+          throw new Error("No road geometry received");
         }
 
-        routeLine.setLatLngs(snappedSections);
-        lastMatchedLatestTs = latestTs;
+        lastMatchedSignature = signature;
         hasRoadMatchedRoute = true;
 
-        document.getElementById("status").textContent =
-          "Road-matched route • latest " + points.length + " GPS points";
-      } catch (error) {
-        console.warn("Road matching unavailable; showing GPS trace instead:", error);
+        rawRouteLine.setStyle({ opacity: 0.2 });
 
-        // Fall back to the actual GPS trace if OSRM is unavailable.
-        if (!hasRoadMatchedRoute) {
-          routeLine.setLatLngs(
-            points.map(point => [point.lat, point.lon])
-          );
-        }
+        document.getElementById("status").textContent =
+          "Road matching successful • " + points.length + " GPS points";
+      } catch (error) {
+        console.warn("Road matching unavailable:", error);
+
+        document.getElementById("status").textContent =
+          "GPS route shown; road matching unavailable";
+
+        // The raw GPS route remains visible as a fallback.
       } finally {
         matchInProgress = false;
       }
     }
 
-
     // =====================================================
-    // GET TELEMETRY
+    // THINGSBOARD TELEMETRY REQUEST
     // =====================================================
-
 
     async function getTelemetry() {
-
+      if (
+        !API_KEY ||
+        API_KEY === "PASTE_NEW_THINGSBOARD_API_KEY_HERE"
+      ) {
+        document.getElementById("status").textContent =
+          "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg";
+        return;
+      }
 
       try {
+        const endTs = Date.now();
+        const hours = viewMode === "live"
+          ? 24
+          : Number(document.getElementById("historyRange").value);
 
+        const startTs = endTs - hours * 60 * 60 * 1000;
 
-        const endTs =
-          Date.now();
-
-
-        // Last 24 hours
-
-        const startTs =
-          endTs -
-          (24 * 60 * 60 * 1000);
-
+        const params = new URLSearchParams({
+          keys: "latitude,longitude,speed,satellites",
+          startTs: String(startTs),
+          endTs: String(endTs),
+          limit: "10000",
+          agg: "NONE",
+          orderBy: "ASC"
+        });
 
         const url =
-
           THINGSBOARD_URL +
-
           "/api/plugins/telemetry/DEVICE/" +
-
           DEVICE_ID +
+          "/values/timeseries?" +
+          params.toString();
 
-          "/values/timeseries" +
-
-          "?keys=latitude,longitude,speed,satellites" +
-
-          "&startTs=" +
-
-          startTs +
-
-          "&endTs=" +
-
-          endTs +
-
-          "&limit=10000" +
-
-          "&agg=NONE" +
-
-          "&orderBy=ASC";
-
-
-        const response =
-          await fetch(
-            url,
-            {
-
-              headers: {
-
-                "X-Authorization":
-                  "ApiKey " + API_KEY
-
-              }
-
-            }
-          );
-
+        const response = await fetch(url, {
+          headers: {
+            "X-Authorization": "ApiKey " + API_KEY
+          }
+        });
 
         if (!response.ok) {
-
-          throw new Error(
-            "ThingsBoard error: " +
-            response.status
-          );
-
+          throw new Error("ThingsBoard HTTP " + response.status);
         }
 
+        const data = await response.json();
 
-        const data =
-          await response.json();
+        const latitudeData = data.latitude || [];
+        const longitudeData = data.longitude || [];
 
-
-        console.log(
-          "ThingsBoard data:",
-          data
-        );
-
-
-        // =================================================
-        // GPS DATA
-        // =================================================
-
-
-        const latitudeData =
-          data.latitude || [];
-
-
-        const longitudeData =
-          data.longitude || [];
-
-
-        if (
-
-          latitudeData.length === 0 ||
-
-          longitudeData.length === 0
-
-        ) {
-
-
-          document.getElementById(
-            "status"
-          ).textContent =
-            "Waiting for GPS data...";
-
-
+        if (!latitudeData.length || !longitudeData.length) {
+          document.getElementById("status").textContent =
+            "Waiting for GPS telemetry from ThingsBoard...";
+          document.getElementById("gpsStatus").textContent = "WAITING";
           return;
-
         }
-
-
-        // =================================================
-        // BUILD CLEAN ROUTE
-        // =================================================
-
 
         const cleanPoints =
-          buildCleanRoute(
+          buildCleanRoute(latitudeData, longitudeData);
 
-            latitudeData,
-
-            longitudeData
-
-          );
-
-
-        if (
-          cleanPoints.length === 0
-        ) {
-
+        if (!cleanPoints.length) {
+          document.getElementById("status").textContent =
+            "No valid matching latitude/longitude pairs found.";
           return;
-
         }
 
-
-        // =================================================
-        // DRAW GPS TRACE / UPDATE ROAD-MATCHED TRACE
-        // =================================================
-
-        // Show the raw trace immediately on first load; OSRM replaces it
-        // with road-matched geometry when a successful match is returned.
-        if (!hasRoadMatchedRoute) {
-          routeLine.setLatLngs(
-            cleanPoints.map(point => [point.lat, point.lon])
-          );
-        }
-
-        // This runs in the background so the live marker can keep updating.
-        snapRouteToRoad(cleanPoints);
-
-
-        // =================================================
-        // LATEST VALID LOCATION
-        // =================================================
-
-
-        const latest =
-          cleanPoints[
-            cleanPoints.length - 1
-          ];
-
-
-        const latestLatitude =
-          latest.lat;
-
-
-        const latestLongitude =
-          latest.lon;
-
-
-        // =================================================
-        // UPDATE MARKER
-        // =================================================
-
-
-        const latestPosition = [
-
-          latestLatitude,
-
-          latestLongitude
-
-        ];
-
-
-        if (marker === null) {
-
-
-          marker =
-            L.marker(
-              latestPosition
-            )
-            .addTo(map)
-            .bindPopup(
-
-              "<b>📍 GPS Location</b><br>" +
-
-              "Latitude: " +
-
-              latestLatitude.toFixed(6) +
-
-              "<br>" +
-
-              "Longitude: " +
-
-              latestLongitude.toFixed(6)
-
-            );
-
-
-        } else {
-
-
-          marker.setLatLng(
-            latestPosition
-          );
-
-
-          marker.setPopupContent(
-
-            "<b>📍 GPS Location</b><br>" +
-
-            "Latitude: " +
-
-            latestLatitude.toFixed(6) +
-
-            "<br>" +
-
-            "Longitude: " +
-
-            latestLongitude.toFixed(6)
-
-          );
-
-        }
-
-
-        // =================================================
-        // MOVE MAP
-        // =================================================
-
-
-        if (firstLocation) {
-
-
-          map.setView(
-            latestPosition,
-            18
-          );
-
-
-          firstLocation = false;
-
-
-        } else {
-
-
-          map.panTo(
-            latestPosition
-          );
-
-        }
-
-
-        // =================================================
-        // UPDATE STATUS
-        // =================================================
-
-
-        document.getElementById(
-          "gpsStatus"
-        ).textContent =
-          "LIVE";
-
-
-        document.getElementById(
-          "gpsStatus"
-        ).style.color =
-          "lime";
-
-
-        document.getElementById(
-          "latitude"
-        ).textContent =
-          latestLatitude.toFixed(6);
-
-
-        document.getElementById(
-          "longitude"
-        ).textContent =
-          latestLongitude.toFixed(6);
-
-
-        // =================================================
-        // SPEED
-        // =================================================
-
-
-        if (
-
-          data.speed &&
-
-          data.speed.length
-
-        ) {
-
-
-          const latestSpeed =
-            Number(
-
-              data.speed[
-                data.speed.length - 1
-              ].value
-
-            );
-
-
-          let displaySpeed =
-            latestSpeed;
-
-
-          // Remove GPS speed noise
-
-          if (
-
-            !Number.isFinite(
-              displaySpeed
-            ) ||
-
-            displaySpeed <
-            STATIONARY_SPEED_KMPH
-
-          ) {
-
-            displaySpeed = 0;
-
-          }
-
-
-          document.getElementById(
-            "speed"
-          ).textContent =
-
-            displaySpeed.toFixed(2) +
-
-            " km/h";
-
-        }
-
-
-        // =================================================
-        // SATELLITES
-        // =================================================
-
-
-        if (
-
-          data.satellites &&
-
-          data.satellites.length
-
-        ) {
-
-
-          const latestSatellites =
-            Number(
-
-              data.satellites[
-                data.satellites.length - 1
-              ].value
-
-            );
-
-
-          document.getElementById(
-            "satellites"
-          ).textContent =
-
-            Number.isFinite(
-              latestSatellites
-            )
-
-              ? latestSatellites
-
-              : "--";
-
-        }
-
-
-        // =================================================
-        // LAST UPDATE
-        // =================================================
-
-
-        document.getElementById(
-          "updateTime"
-        ).textContent =
-
-          new Date()
-            .toLocaleTimeString();
-
-
-        // =================================================
-        // GOOGLE MAPS
-        // =================================================
-
-
-        document.getElementById(
-          "googleMaps"
-        ).href =
-
-          "https://www.google.com/maps?q=" +
-
-          latestLatitude +
-
-          "," +
-
-          latestLongitude;
-
-
-        // =================================================
-        // STATUS MESSAGE
-        // =================================================
-
-
-        if (!hasRoadMatchedRoute) {
-          document.getElementById(
-            "status"
-          ).textContent =
-            "GPS connected • " +
-            cleanPoints.length +
-            " clean route points • matching roads…";
-        }
-
-
-      }
-
-
-      catch (error) {
-
-
-        console.error(
-          "ThingsBoard error:",
-          error
+        // Always display the raw GPS trace as a fallback.
+        rawRouteLine.setLatLngs(
+          cleanPoints.map(p => [p.lat, p.lon])
         );
 
+        if (!hasRoadMatchedRoute) {
+          rawRouteLine.setStyle({ opacity: 0.8 });
+        }
 
-        document.getElementById(
-          "status"
-        ).textContent =
+        // Attempt road matching when there are enough points.
+        if (cleanPoints.length >= 2) {
+          snapRouteToRoad(cleanPoints);
+        } else {
+          document.getElementById("status").textContent =
+            "GPS connected • 1 clean route point; move to record a route.";
+        }
 
-          "ThingsBoard connection error";
+        const latest = cleanPoints[cleanPoints.length - 1];
+        const position = [latest.lat, latest.lon];
 
+        if (!marker) {
+          marker = L.marker(position).addTo(map);
+        } else {
+          marker.setLatLng(position);
+        }
 
-        document.getElementById(
-          "gpsStatus"
-        ).textContent =
-          "ERROR";
+        marker.bindPopup(
+          "<b>GPS Location</b><br>" +
+          "Latitude: " + latest.lat.toFixed(6) + "<br>" +
+          "Longitude: " + latest.lon.toFixed(6) + "<br>" +
+          "Recorded: " + new Date(latest.ts).toLocaleString()
+        );
 
+        if (firstLocation) {
+          map.setView(position, 17);
+          firstLocation = false;
+        } else if (viewMode === "live") {
+          map.panTo(position);
+        }
 
-        document.getElementById(
-          "gpsStatus"
-        ).style.color =
-          "red";
+        document.getElementById("gpsStatus").textContent =
+          viewMode === "live" ? "LIVE" : "HISTORY";
 
+        document.getElementById("gpsStatus").style.color =
+          viewMode === "live" ? "lime" : "#ffd166";
+
+        document.getElementById("latitude").textContent =
+          latest.lat.toFixed(6);
+
+        document.getElementById("longitude").textContent =
+          latest.lon.toFixed(6);
+
+        document.getElementById("updateTime").textContent =
+          new Date(latest.ts).toLocaleString();
+
+        const speedData = data.speed || [];
+
+        if (speedData.length) {
+          let speed = Number(speedData[speedData.length - 1].value);
+
+          if (!Number.isFinite(speed) || speed < STATIONARY_SPEED_KMPH) {
+            speed = 0;
+          }
+
+          document.getElementById("speed").textContent =
+            speed.toFixed(2) + " km/h";
+        }
+
+        const satelliteData = data.satellites || [];
+
+        if (satelliteData.length) {
+          document.getElementById("satellites").textContent =
+            satelliteData[satelliteData.length - 1].value;
+        }
+
+        document.getElementById("googleMaps").href =
+          "https://www.google.com/maps?q=" +
+          latest.lat + "," + latest.lon;
+
+        if (viewMode === "live" && cleanPoints.length >= 2) {
+          document.getElementById("status").textContent =
+            "Live GPS • " + cleanPoints.length + " clean route points";
+        } else if (viewMode === "history") {
+          document.getElementById("status").textContent =
+            "History: last " + hours + " hour(s) • " +
+            cleanPoints.length + " clean route points";
+        }
+      } catch (error) {
+        console.error("Tracker error:", error);
+
+        document.getElementById("status").textContent =
+          "Connection error: " + error.message;
+
+        document.getElementById("gpsStatus").textContent = "ERROR";
+        document.getElementById("gpsStatus").style.color = "red";
       }
-
     }
 
-
     // =====================================================
-    // START
+    // LIVE / HISTORY CONTROLS
     // =====================================================
 
+    const liveButton = document.getElementById("liveButton");
+    const historyButton = document.getElementById("historyButton");
+    const historyRange = document.getElementById("historyRange");
 
+    function setMode(mode) {
+      viewMode = mode;
+
+      liveButton.classList.toggle("active", mode === "live");
+      historyButton.classList.toggle("active", mode === "history");
+
+      // Clear previous matching results so a new selected range can be matched.
+      matchedRouteLayer.clearLayers();
+      hasRoadMatchedRoute = false;
+      lastMatchedSignature = "";
+      lastMatchAt = 0;
+      rawRouteLine.setStyle({ opacity: 0.8 });
+
+      getTelemetry();
+    }
+
+    liveButton.addEventListener("click", () => setMode("live"));
+    historyButton.addEventListener("click", () => setMode("history"));
+
+    historyRange.addEventListener("change", () => {
+      if (viewMode === "history") {
+        matchedRouteLayer.clearLayers();
+        hasRoadMatchedRoute = false;
+        lastMatchedSignature = "";
+        lastMatchAt = 0;
+        getTelemetry();
+      }
+    });
+
+    // Initial load and refresh.
     getTelemetry();
-
-
-    // Refresh every 5 seconds
-
-    setInterval(
-      getTelemetry,
-      5000
-    );
-
-
+    setInterval(getTelemetry, 5000);
   </script>
-
 </body>
-
 </html>
