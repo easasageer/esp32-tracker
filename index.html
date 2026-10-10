@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 
@@ -296,8 +295,10 @@
     // PUT YOUR NEW API KEY HERE
     // =====================================================
 
+    // Paste a NEWLY REGENERATED ThingsBoard API key here.
+    // The key in the uploaded file was exposed, so revoke/rotate it first.
     const API_KEY =
-      "tb_MmtobP-6M4HXI0Qu_u5uKyi-GVd7QTdlPsUa0j0Wo9QIiuL6tJ3pKxBT0Q-RYTSZVPqn-QMm6B-dpqpSKaM-Dw";
+      "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg";
 
 
     // =====================================================
@@ -372,6 +373,13 @@
 
 
     let firstLocation = true;
+
+    // OSRM road matching state. We road-match only the newest
+    // 100 cleaned points to avoid excessive requests to the public demo service.
+    let lastMatchedLatestTs = 0;
+    let lastMatchAt = 0;
+    let matchInProgress = false;
+    let hasRoadMatchedRoute = false;
 
 
     // =====================================================
@@ -621,6 +629,102 @@
 
 
     // =====================================================
+    // SNAP GPS TRACE TO ROADS USING OSRM MATCH API
+    // =====================================================
+
+    async function snapRouteToRoad(cleanPoints) {
+      if (!cleanPoints || cleanPoints.length < 2 || matchInProgress) {
+        return;
+      }
+
+      const latestTs = cleanPoints[cleanPoints.length - 1].ts;
+      const now = Date.now();
+
+      // Don't send the same trace repeatedly. Refresh at most every 30 seconds.
+      if (
+        latestTs === lastMatchedLatestTs ||
+        (lastMatchAt > 0 && now - lastMatchAt < 30000)
+      ) {
+        return;
+      }
+
+      // OSRM's public demo service is not intended for high-volume use.
+      // Match the most recent 100 points only.
+      const points = cleanPoints.slice(-100);
+      if (points.length < 2) return;
+
+      matchInProgress = true;
+      lastMatchAt = now;
+
+      try {
+        const coordinates = points
+          .map(point => `${point.lon},${point.lat}`)
+          .join(";");
+
+        const timestamps = points
+          .map(point => Math.floor(point.ts / 1000))
+          .join(";");
+
+        const radiuses = points.map(() => "20").join(";");
+
+        const matchUrl =
+          "https://router.project-osrm.org/match/v1/driving/" +
+          coordinates +
+          "?geometries=geojson&overview=full&tidy=true&gaps=split" +
+          "&timestamps=" + timestamps +
+          "&radiuses=" + radiuses;
+
+        const response = await fetch(matchUrl);
+        if (!response.ok) {
+          throw new Error("OSRM match HTTP " + response.status);
+        }
+
+        const result = await response.json();
+
+        if (
+          result.code !== "Ok" ||
+          !Array.isArray(result.matchings) ||
+          result.matchings.length === 0
+        ) {
+          throw new Error("OSRM could not match this GPS trace");
+        }
+
+        // A trace can be split into several matchings when GPS points have gaps.
+        // Keep each matched section as a separate Leaflet line so gaps aren't
+        // drawn as artificial straight connectors.
+        const snappedSections = result.matchings
+          .filter(m => m.geometry && Array.isArray(m.geometry.coordinates))
+          .map(m =>
+            m.geometry.coordinates.map(([lon, lat]) => [lat, lon])
+          )
+          .filter(section => section.length > 1);
+
+        if (snappedSections.length === 0) {
+          throw new Error("No matched road geometry returned");
+        }
+
+        routeLine.setLatLngs(snappedSections);
+        lastMatchedLatestTs = latestTs;
+        hasRoadMatchedRoute = true;
+
+        document.getElementById("status").textContent =
+          "Road-matched route • latest " + points.length + " GPS points";
+      } catch (error) {
+        console.warn("Road matching unavailable; showing GPS trace instead:", error);
+
+        // Fall back to the actual GPS trace if OSRM is unavailable.
+        if (!hasRoadMatchedRoute) {
+          routeLine.setLatLngs(
+            points.map(point => [point.lat, point.lon])
+          );
+        }
+      } finally {
+        matchInProgress = false;
+      }
+    }
+
+
+    // =====================================================
     // GET TELEMETRY
     // =====================================================
 
@@ -763,22 +867,19 @@
 
 
         // =================================================
-        // DRAW CLEAN ROUTE
+        // DRAW GPS TRACE / UPDATE ROAD-MATCHED TRACE
         // =================================================
 
-
-        const routeCoordinates =
-          cleanPoints.map(
-            point => [
-              point.lat,
-              point.lon
-            ]
+        // Show the raw trace immediately on first load; OSRM replaces it
+        // with road-matched geometry when a successful match is returned.
+        if (!hasRoadMatchedRoute) {
+          routeLine.setLatLngs(
+            cleanPoints.map(point => [point.lat, point.lon])
           );
+        }
 
-
-        routeLine.setLatLngs(
-          routeCoordinates
-        );
+        // This runs in the background so the live marker can keep updating.
+        snapRouteToRoad(cleanPoints);
 
 
         // =================================================
@@ -1054,15 +1155,14 @@
         // =================================================
 
 
-        document.getElementById(
-          "status"
-        ).textContent =
-
-          "GPS connected • " +
-
-          cleanPoints.length +
-
-          " clean route points";
+        if (!hasRoadMatchedRoute) {
+          document.getElementById(
+            "status"
+          ).textContent =
+            "GPS connected • " +
+            cleanPoints.length +
+            " clean route points • matching roads…";
+        }
 
 
       }
@@ -1121,4 +1221,3 @@
 </body>
 
 </html>
-```
