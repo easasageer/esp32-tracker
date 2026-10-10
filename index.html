@@ -184,7 +184,7 @@
       "512351b0-b9be-11f1-8553-d97f9e4a8828";
 
     // Replace with your newly regenerated ThingsBoard API key.
-    const API_KEY = "PASTE_NEW_THINGSBOARD_API_KEY_HERE";
+    const API_KEY = "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg";
 
     // =====================================================
     // GPS FILTER SETTINGS
@@ -202,56 +202,55 @@
       [10.156453, 76.258558], 15
     );
 
-    const osmTiles = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors"
-      }
-    );
+ 
+const osmTiles = L.tileLayer(
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+    referrerPolicy: "strict-origin-when-cross-origin"
+  }
+);
 
-    const esriTiles = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-      {
-        maxZoom: 19,
-        attribution: "Tiles &copy; Esri"
-      }
-    );
+const esriTiles = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  {
+    maxZoom: 19,
+    attribution: "Tiles &copy; Esri"
+  }
+);
 
-    let usingEsri = false;
-    let osmErrors = 0;
-    let esriErrors = 0;
+let usingEsri = false;
+let osmErrors = 0;
 
-    osmTiles.on("tileerror", () => {
-      osmErrors++;
+osmTiles.on("tileerror", function () {
+  osmErrors++;
 
-      if (osmErrors >= 3 && !usingEsri) {
-        usingEsri = true;
-        map.removeLayer(osmTiles);
-        esriTiles.addTo(map);
+  if (osmErrors >= 3 && !usingEsri) {
+    usingEsri = true;
 
-        document.getElementById("tileStatus").textContent =
-          "OpenStreetMap failed; trying backup street map...";
-      }
-    });
+    if (map.hasLayer(osmTiles)) {
+      map.removeLayer(osmTiles);
+    }
 
-    esriTiles.on("tileload", () => {
-      esriErrors = 0;
-      document.getElementById("tileStatus").textContent =
-        usingEsri ? "Using Esri street-map tiles" :
-                    "Using OpenStreetMap tiles";
-    });
+    esriTiles.addTo(map);
+    document.getElementById("tileStatus").textContent =
+      "Trying backup street-map tiles...";
+  }
+});
 
-    esriTiles.on("tileerror", () => {
-      esriErrors++;
+esriTiles.on("tileload", function () {
+  document.getElementById("tileStatus").textContent =
+    "Street-map tiles loaded";
+});
 
-      if (esriErrors >= 3) {
-        document.getElementById("tileStatus").textContent =
-          "Map tiles are not loading. Check internet access, browser extensions, or network restrictions.";
-      }
-    });
+esriTiles.on("tileerror", function () {
+  document.getElementById("tileStatus").textContent =
+    "Map tiles blocked or unavailable. Check browser Console.";
+});
 
-    osmTiles.addTo(map);
+osmTiles.addTo(map);
+
 
     window.addEventListener("load", () => {
       setTimeout(() => map.invalidateSize(), 300);
