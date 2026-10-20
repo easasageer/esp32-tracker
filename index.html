@@ -1,12 +1,19 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32 GPS Tracker</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
 
   <style>
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
@@ -17,13 +24,20 @@
 
     h1 { padding: 15px; margin: 0; }
 
-    #status { padding: 10px; font-size: 18px; }
+    #status {
+      padding: 12px;
+      font-size: 16px;
+    }
 
-    #map { height: 70vh; width: 100%; }
+    #map {
+      height: 65vh;
+      width: 100%;
+      background: #222;
+    }
 
     .details {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       padding: 15px;
     }
@@ -32,6 +46,7 @@
       background: #222;
       padding: 12px;
       border-radius: 8px;
+      overflow-wrap: anywhere;
     }
 
     .label { font-size: 13px; color: #aaa; }
@@ -54,19 +69,24 @@
     }
 
     #googleMaps:hover { opacity: 0.85; }
+
+    @media (max-width: 480px) {
+      #map { height: 55vh; }
+      .value { font-size: 15px; }
+    }
   </style>
 </head>
 
 <body>
   <h1>📍 ESP32 GPS Tracker</h1>
 
-  <div id="status">Connecting to ThingsBoard...</div>
+  <div id="status">Starting tracker...</div>
   <div id="map"></div>
 
   <div class="details">
     <div class="box">
-      <div class="label">Status</div>
-      <div class="value" id="gpsStatus">--</div>
+      <div class="label">GPS Status</div>
+      <div class="value" id="gpsStatus">Waiting</div>
     </div>
 
     <div class="box">
@@ -95,9 +115,12 @@
     </div>
   </div>
 
-  <a id="googleMaps" href="#" target="_blank" rel="noopener">
-    Open in Google Maps
-  </a>
+  <a
+    id="googleMaps"
+    href="#"
+    target="_blank"
+    rel="noopener noreferrer"
+  >Open in Google Maps</a>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -108,10 +131,16 @@
 
     const THINGSBOARD_URL = "https://thingsboard.cloud";
 
-    const DEVICE_ID = "512351b0-b9be-11f1-8553-d97f9e4a8828";
+    const DEVICE_ID =
+      "512351b0-b9be-11f1-8553-d97f9e4a8828";
 
-    // Enter your newly generated ThingsBoard API key.
-    const API_KEY = "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg";
+    // Use a valid ThingsBoard REST API key here.
+    // Do not use a device access token unless your
+    // ThingsBoard configuration explicitly supports it.
+    const API_KEY = "PASTE_VALID_REST_API_KEY_HERE";
+
+    const POLL_INTERVAL_MS = 5000;
+    const LOOKBACK_HOURS = 24;
 
     // =============================================
     // GPS FILTER SETTINGS
@@ -122,10 +151,24 @@
     const STATIONARY_SPEED_KMPH = 3;
 
     // =============================================
+    // PAGE HELPERS
+    // =============================================
+
+    const $ = id => document.getElementById(id);
+
+    function setStatus(message, color = "#ffffff") {
+      $("status").textContent = message;
+      $("status").style.color = color;
+    }
+
+    // =============================================
     // MAP
     // =============================================
 
-    const map = L.map("map").setView([10.156453, 76.258558], 15);
+    const map = L.map("map").setView(
+      [10.156453, 76.258558],
+      15
+    );
 
     const osmTiles = L.tileLayer(
       "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -146,37 +189,30 @@
     let usingFallbackTiles = false;
     let tileErrorCount = 0;
 
-    osmTiles.on("tileerror", function () {
+    osmTiles.on("tileerror", () => {
       tileErrorCount++;
 
       if (tileErrorCount >= 3 && !usingFallbackTiles) {
         usingFallbackTiles = true;
         map.removeLayer(osmTiles);
         esriTiles.addTo(map);
-        document.getElementById("status").textContent =
-          "OpenStreetMap failed; trying backup map...";
       }
-    });
-
-    esriTiles.on("tileerror", function () {
-      document.getElementById("status").textContent =
-        "Map tiles unavailable. Check your internet connection.";
     });
 
     osmTiles.addTo(map);
 
-    window.addEventListener("load", function () {
-      setTimeout(function () {
-        map.invalidateSize();
-      }, 250);
+    window.addEventListener("load", () => {
+      setTimeout(() => map.invalidateSize(), 250);
     });
 
     // =============================================
-    // GPS MARKER AND STRAIGHT ROUTE LINE
+    // MARKER AND STRAIGHT ROUTE
     // =============================================
 
     let marker = null;
     let firstLocation = true;
+    let previousAcceptedPoint = null;
+    let routePoints = [];
 
     const routeLine = L.polyline([], {
       color: "#00aaff",
@@ -185,7 +221,7 @@
     }).addTo(map);
 
     // =============================================
-    // DISTANCE CALCULATION
+    // DISTANCE
     // =============================================
 
     function distanceMeters(lat1, lon1, lat2, lon2) {
@@ -207,3 +243,283 @@
     }
 
     // =============================================
+    // THINGSBOARD TELEMETRY REQUEST
+    // =============================================
+
+    async function fetchTelemetry() {
+      if (
+        !API_KEY ||
+        API_KEY === "tb_5JMVOnpyfr-zVABN4_11pylL_mMhxZaE5U66M9gLLab2PVUGe8EfpF8v67s5B9rj96ieYRLMVdVP-uWgqtmRdg"
+      ) {
+        setStatus(
+          "Setup required: enter a valid REST API key.",
+          "#ffcc66"
+        );
+        return;
+      }
+
+      const endTs = Date.now();
+      const startTs =
+        endTs - LOOKBACK_HOURS * 60 * 60 * 1000;
+
+      const keys =
+        "latitude,longitude,speed,satellites";
+
+      const url =
+        `${THINGSBOARD_URL}/api/plugins/telemetry/DEVICE/` +
+        `${encodeURIComponent(DEVICE_ID)}/values/timeseries` +
+        `?keys=${encodeURIComponent(keys)}` +
+        `&startTs=${startTs}` +
+        `&endTs=${endTs}` +
+        `&limit=10000&agg=NONE&orderBy=ASC`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        12000
+      );
+
+      try {
+        setStatus("Connecting to ThingsBoard...", "#ffcc66");
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "X-Authorization": `ApiKey ${API_KEY}`,
+            "Accept": "application/json"
+          },
+          signal: controller.signal,
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error(
+              "HTTP 401: API key invalid or not accepted."
+            );
+          }
+
+          if (response.status === 403) {
+            throw new Error(
+              "HTTP 403: API key lacks permission."
+            );
+          }
+
+          if (response.status === 404) {
+            throw new Error(
+              "HTTP 404: Check the device ID and endpoint."
+            );
+          }
+
+          throw new Error(
+            `ThingsBoard HTTP ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        console.log("ThingsBoard telemetry keys:", Object.keys(data));
+
+        const latest = key => {
+          const values = data[key];
+
+          if (!Array.isArray(values) || values.length === 0) {
+            return null;
+          }
+
+          return values.reduce((newest, item) =>
+            !newest || Number(item.ts) > Number(newest.ts)
+              ? item
+              : newest
+          , null);
+        };
+
+        const latItem = latest("latitude");
+        const lonItem = latest("longitude");
+
+        if (!latItem || !lonItem) {
+          $("gpsStatus").textContent = "No GPS data";
+          setStatus(
+            "Connected, but latitude/longitude are missing.",
+            "#ffcc66"
+          );
+          return;
+        }
+
+        const latitude = Number(latItem.value);
+        const longitude = Number(lonItem.value);
+
+        if (
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude) ||
+          latitude < -90 ||
+          latitude > 90 ||
+          longitude < -180 ||
+          longitude > 180
+        ) {
+          throw new Error("Invalid GPS coordinates.");
+        }
+
+        // Latest available speed and satellite values.
+        const speedItem = latest("speed");
+        const satelliteItem = latest("satellites");
+
+        let speed = speedItem
+          ? Number(speedItem.value)
+          : 0;
+
+        const satelliteCount = satelliteItem
+          ? Number(satelliteItem.value)
+          : null;
+
+        if (!Number.isFinite(speed) || speed < 0) {
+          speed = 0;
+        }
+
+        if (speed > MAX_SPEED_KMPH) {
+          speed = 0;
+        }
+
+        if (speed < STATIONARY_SPEED_KMPH) {
+          speed = 0;
+        }
+
+        // =========================================
+        // UPDATE DISPLAY
+        // =========================================
+
+        $("latitude").textContent = latitude.toFixed(6);
+        $("longitude").textContent = longitude.toFixed(6);
+        $("speed").textContent = `${speed.toFixed(1)} km/h`;
+
+        $("satellites").textContent =
+          satelliteCount !== null &&
+          Number.isFinite(satelliteCount)
+            ? String(satelliteCount)
+            : "--";
+
+        $("gpsStatus").textContent = "LIVE";
+        $("gpsStatus").style.color = "#00e676";
+
+        $("updateTime").textContent =
+          new Date(Math.max(
+            Number(latItem.ts) || 0,
+            Number(lonItem.ts) || 0
+          )).toLocaleTimeString();
+
+        $("googleMaps").href =
+          `https://www.google.com/maps?q=${latitude},${longitude}`;
+
+        setStatus("Connected to ThingsBoard • LIVE", "#00e676");
+
+        // =========================================
+        // UPDATE MARKER
+        // =========================================
+
+        const position = [latitude, longitude];
+
+        if (!marker) {
+          marker = L.marker(position).addTo(map);
+        } else {
+          marker.setLatLng(position);
+        }
+
+        marker.bindPopup(
+          `<b>GPS Location</b><br>` +
+          `Latitude: ${latitude.toFixed(6)}<br>` +
+          `Longitude: ${longitude.toFixed(6)}<br>` +
+          `Speed: ${speed.toFixed(1)} km/h`
+        );
+
+        // =========================================
+        // UPDATE STRAIGHT ROUTE
+        // =========================================
+
+        if (!previousAcceptedPoint) {
+          routePoints.push(position);
+          previousAcceptedPoint = {
+            latitude,
+            longitude,
+            ts: Math.max(
+              Number(latItem.ts) || 0,
+              Number(lonItem.ts) || 0
+            )
+          };
+        } else {
+          const distance = distanceMeters(
+            previousAcceptedPoint.latitude,
+            previousAcceptedPoint.longitude,
+            latitude,
+            longitude
+          );
+
+          const currentTs = Math.max(
+            Number(latItem.ts) || 0,
+            Number(lonItem.ts) || 0
+          );
+
+          const elapsedSeconds =
+            Math.max(0, currentTs - previousAcceptedPoint.ts) / 1000;
+
+          const impliedSpeed = elapsedSeconds > 0
+            ? distance / elapsedSeconds * 3.6
+            : 0;
+
+          if (
+            distance >= MIN_MOVEMENT_METERS &&
+            impliedSpeed <= MAX_SPEED_KMPH
+          ) {
+            routePoints.push(position);
+
+            previousAcceptedPoint = {
+              latitude,
+              longitude,
+              ts: currentTs
+            };
+
+            // Avoid excessive memory growth.
+            if (routePoints.length > 5000) {
+              routePoints = routePoints.slice(-5000);
+            }
+
+            routeLine.setLatLngs(routePoints);
+          }
+        }
+
+        if (firstLocation) {
+          map.setView(position, 18);
+          firstLocation = false;
+        }
+
+      } catch (error) {
+        console.error("ThingsBoard telemetry error:", error);
+
+        $("gpsStatus").textContent = "Connection error";
+        $("gpsStatus").style.color = "#ff5252";
+
+        if (error.name === "AbortError") {
+          setStatus(
+            "ThingsBoard request timed out. Retrying...",
+            "#ff5252"
+          );
+        } else {
+          setStatus(
+            error.message || "Unable to retrieve telemetry.",
+            "#ff5252"
+          );
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    // =============================================
+    // START AND REPEAT
+    // =============================================
+
+    fetchTelemetry();
+    setInterval(fetchTelemetry, POLL_INTERVAL_MS);
+  </script>
+</body>
+</html>
+```
